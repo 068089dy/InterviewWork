@@ -1,5 +1,7 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using DefaultNamespace;
 using DefaultNamespace.SO;
 using Lean.Pool;
 using UnityEngine;
@@ -7,7 +9,7 @@ using UnityEngine;
 public class ResourceStack
 {
     public ResourceType Type;
-    public GameObject cube;
+    public GameObject placer;
 }
 public enum StorageType
 {
@@ -30,26 +32,20 @@ public class Storage : MonoBehaviour
     public bool IsFull => resources.Count >= capacity;
     public bool IsEmpty => resources.Count == 0;
 
-    public bool Add(ResourceType type, GameObject resCube)
+    public bool Add(ResourceType type, GameObject placer)
     {
         if (IsFull) return false;
         resources.Add(new ResourceStack()
         {
             Type = type,
-            cube = resCube
+            placer = placer
         });
-        resCube.transform.position = GetStackPosition(resources.Count-1); // 计算新资源的位置（可用于动画）
-        resCube.transform.localRotation = transform.rotation;
+        placer.transform.position = GetStackPosition(resources.Count-1); // 计算新资源的位置（可用于动画）
+        placer.transform.localRotation = Quaternion.identity;
         return true;
     }
-    
-    public Vector3 GetNextWorldPos()
-    {
-        int index = resources.Count-1;
 
-        return GetStackPosition(index);
-    }
-    
+
     public Vector3 GetStackPosition(int index)
     {
         int layer = index / 16;
@@ -72,11 +68,38 @@ public class Storage : MonoBehaviour
     {
         for (int i = 0; i < resources.Count; i++)
         {
-            if (resources[i].cube != null)
+            if (resources[i].placer != null)
             {
-                resources[i].cube.transform.position = GetStackPosition(i);
+                resources[i].placer.transform.position = GetStackPosition(i);
             }
         }
+    }
+    
+    public bool RemoveAndReturnPos(ResourceType type, out Vector3 pos)
+    {
+        pos = Vector3.one;
+        for (int i = 0; i < resources.Count; i++)
+        {
+            if (resources[i].Type == type)
+            {
+                var stack = resources[i];
+                
+                if (stack.placer != null)
+                {
+                    pos = stack.placer.transform.position;
+                    stack.placer.GetComponent<ResourcePlacer>().Recycle();
+                }
+
+                resources.RemoveAt(i);
+                    
+                // 重新整理堆叠位置
+                RefreshPositions();
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public bool Remove(ResourceType type)
@@ -87,9 +110,9 @@ public class Storage : MonoBehaviour
             {
                 var stack = resources[i];
                 
-                if (stack.cube != null)
+                if (stack.placer != null)
                 {
-                    LeanPool.Despawn(stack.cube);
+                    stack.placer.GetComponent<ResourcePlacer>().Recycle();
                 }
 
                 resources.RemoveAt(i);

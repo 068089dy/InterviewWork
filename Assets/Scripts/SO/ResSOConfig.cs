@@ -8,7 +8,8 @@ namespace DefaultNamespace.SO
     {
         N1,
         N2,
-        N3
+        N3,
+        None,
     }
     
     [CreateAssetMenu(fileName="ResConfig",menuName="配置/资源集合")]

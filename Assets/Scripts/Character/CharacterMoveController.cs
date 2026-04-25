@@ -20,8 +20,6 @@ namespace DefaultNamespace.Character
         private CharacterController controller;
         private Vector3 velocity;
 
-        // public Joystick joystick;
-
         private IInputModel _inputModel;
 
         private bool _canMove = true;

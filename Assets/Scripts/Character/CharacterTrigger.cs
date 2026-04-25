@@ -11,6 +11,7 @@ namespace DefaultNamespace.Character
     {
         public Backpack backpack;
         public ResSOConfig resSoConfig;
+        public ResourcePlacer placerPrefab;
         private void OnTriggerStay(Collider other)
         {
             var storage = other.GetComponent<Storage>();
@@ -20,81 +21,67 @@ namespace DefaultNamespace.Character
             // 从输出仓库拿
             if (!backpack.IsFull && !storage.IsEmpty && storage.storageType == StorageType.Output)
             {
-                StartCoroutine(TakeResource(storage));
+                TakeResource(storage);
             }
 
             // 往输入仓库放
             if (!backpack.IsEmpty && !storage.IsFull && storage.storageType == StorageType.Input)
             {
-                StartCoroutine(PutResource(storage));
+                PutResource(storage);
             }
         }
 
-        private bool isBusy = false;
-        IEnumerator PutResource(Storage storage)
+        private float lastPutTime = -10f;
+        private float putCD = 0.03f;
+        void PutResource(Storage storage)
         {
-            isBusy = true;
+            if (lastPutTime + putCD > Time.time)
+                return;
+            if (storage.IsFull)
+                return;
 
-            // 1️⃣ 从背包拿一个
-            GameObject cube = null;
-            ResourceType resourceType = 0;
+            // 从背包拿一个
+            Vector3 pos = Vector3.zero;
+            bool find = false;
+            ResourceType resourceType = ResourceType.None;
             foreach (var type in storage.consumeTypes)
             {
-                cube = backpack.RemoveTop(type);
-                resourceType = type;
-                if (cube)
+                if (backpack.RemoveAndReturnPos(type, out pos))
+                {
+                    find = true;
+                    resourceType = type;
                     break;
+                }
             }
             
-            if (cube == null)
+            if (!find)
             {
-                isBusy = false;
-                yield break;
+                return;
             }
 
-            // 2️⃣ 先从背包脱离
-            cube.transform.SetParent(null);
-
-            // 3️⃣ 目标位置（仓库下一个格子）
-            Vector3 target = storage.GetNextWorldPos();
-
-            // 4️⃣ 飞过去（角色 → 仓库）
-            yield return MoveAnim.Move(
-                cube.transform,
-                cube.transform.position,
-                target,
-                0.3f
-            );
-
-            // 5️⃣ 加入仓库（并自动排队）
-            yield return storage.Add(resourceType, cube);
-
-            // 6️⃣ 可选：加一点节奏（避免太快）
-            yield return new WaitForSeconds(0.1f);
-
-            isBusy = false;
+            // 先从背包脱离
+            var placer = Instantiate(placerPrefab);
+            var cube = LeanPool.Spawn(resSoConfig.prefabs[resourceType]);
+            cube.transform.position = pos;
+            placer.PlaceResource(cube.gameObject);
+            // 加入仓库（并自动排队）
+            storage.Add(resourceType, placer.gameObject);
+            lastPutTime = Time.time;
         }
         
-        IEnumerator TakeResource(Storage storage)
+        void TakeResource(Storage storage)
         {
             var type = storage.Resources.First().Type;
-
+            var startPos = storage.Resources.First().placer.transform.position;
             storage.Remove(type);
 
             GameObject cube = LeanPool.Spawn(resSoConfig.prefabs[type]);
+            var placer = LeanPool.Spawn(placerPrefab);
+            backpack.Add(type, placer.gameObject);
+            
+            cube.transform.position = startPos;
+            placer.PlaceResource(cube);
 
-            yield return MoveAnim.Move(
-                cube.transform,
-                storage.transform.position,
-                transform.position,
-                0.3f
-            );
-
-            cube.transform.rotation = transform.rotation;
-            backpack.Add(type, cube);
-
-            // 挂到角色背后（堆叠）
-            //cube.transform.SetParent(backpack.transform);
         }
     }
 }

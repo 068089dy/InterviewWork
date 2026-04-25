@@ -9,8 +9,6 @@ namespace DefaultNamespace.Character
     public class Backpack : MonoBehaviour
     {
         public int capacity = 10;
-        // private List<ResourceType> items = new();
-        // private List<GameObject> cubes = new();
         public int rowCount = 1;
         public int colCount = 3;
         public float spacing = 0.25f;
@@ -26,7 +24,7 @@ namespace DefaultNamespace.Character
             items.Add(new ResourceStack()
             {
                 Type = type,
-                cube = cube
+                placer = cube
             });
 
             int index = items.Count - 1;
@@ -63,9 +61,9 @@ namespace DefaultNamespace.Character
                 {
                     var stack = items[i];
                 
-                    if (stack.cube != null)
+                    if (stack.placer != null)
                     {
-                        LeanPool.Despawn(stack.cube);
+                        LeanPool.Despawn(stack.placer);
                     }
 
                     items.RemoveAt(i);
@@ -80,34 +78,32 @@ namespace DefaultNamespace.Character
             return false;
         }
         
-        public GameObject RemoveTop(ResourceType type)
+        public bool RemoveAndReturnPos(ResourceType type, out Vector3 pos)
         {
+            pos = Vector3.one;
             for (int i = 0; i < items.Count; i++)
             {
                 if (items[i].Type == type)
                 {
                     var stack = items[i];
                 
-                    // if (stack.cube != null)
-                    // {
-                    //     LeanPool.Despawn(stack.cube);
-                    // }
-
-                    
-
+                    if (stack.placer != null)
+                    {
+                        pos = stack.placer.transform.position;
+                        stack.placer.GetComponent<ResourcePlacer>().Recycle();
+                    }
                     items.RemoveAt(i);
-
+                    
                     // 重新整理堆叠位置
                     Rearrange();
 
-                    return stack.cube;
+                    return true;
                 }
             }
 
-            return null;
+            return false;
         }
 
-        // public List<ResourceType> GetAll() => items;
         
         void Rearrange()
         {
@@ -115,7 +111,7 @@ namespace DefaultNamespace.Character
             {
                 Vector3 target = GetLocalStackPos(i);
 
-                StartCoroutine(MoveLocal(items[i].cube.transform, target, 0.2f));
+                StartCoroutine(MoveLocal(items[i].placer.transform, target, 0.2f));
             }
         }
         
