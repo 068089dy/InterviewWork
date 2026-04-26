@@ -92,13 +92,16 @@ namespace DefaultNamespace
                 var cube = LeanPool.Spawn(resSoConfig.prefabs[type]);
                 cube.transform.position = pos1;
                 var duration = cube.GetComponent<Resource>().duration;
-                cube.transform.DOMove(transform.position, duration);
+                cube.transform.DOMove(transform.position, duration).OnComplete(() =>
+                {
+                    LeanPool.Despawn(cube);
+                });
             }
 
             // 4. Output Animation
             ProduceAnimation(resSoConfig.prefabs[produceType]);
         }
-        
+
         void StopWithReason(string reason)
         {
             // repeated reason doesn't stack
